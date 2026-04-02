@@ -69,9 +69,10 @@ Flags (for 'run' and 'check'):
 Service Commands:
   reconx service install    Install and start systemd service
   reconx service uninstall  Stop and remove systemd service
+  reconx service stop       Stop the service
+  reconx service restart    Restart the service
   reconx service status     Show service status
   reconx service logs       Tail service logs (journalctl)
-  reconx service restart    Restart the service
 
 Examples:
   reconx init                          # Generate example config
@@ -207,9 +208,10 @@ func cmdService(args []string) {
 Actions:
   install      Install and start reconx as a systemd service
   uninstall    Stop and remove the systemd service
+  stop         Stop the service
+  restart      Restart the service
   status       Show service status
-  logs         Tail service logs (journalctl)
-  restart      Restart the service`)
+  logs         Tail service logs (journalctl)`)
 		return
 	}
 
@@ -220,6 +222,8 @@ Actions:
 		serviceUninstall()
 	case "status":
 		serviceStatus()
+	case "stop":
+		serviceStop()
 	case "logs":
 		serviceLogs()
 	case "restart":
@@ -362,6 +366,22 @@ func serviceLogs() {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Run()
+}
+
+func serviceStop() {
+	if os.Getuid() != 0 {
+		fmt.Fprintln(os.Stderr, "❌ Must run as root: sudo reconx service stop")
+		os.Exit(1)
+	}
+
+	c := exec.Command("systemctl", "stop", serviceName)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	if err := c.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Stop failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("✅ ReconX service stopped.")
 }
 
 func serviceRestart() {
