@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/xalgord/reconx/internal/config"
 	"github.com/xalgord/reconx/internal/findings"
+	"github.com/xalgord/reconx/internal/logger"
 	"github.com/xalgord/reconx/internal/recon"
 	"github.com/xalgord/reconx/internal/runner"
 	"github.com/xalgord/reconx/internal/scanner"
@@ -26,7 +26,7 @@ type Result struct {
 }
 
 // RunDAST performs the full DAST phase for a target:
-// 1. Gather URLs with parameters (waymore + paramspider)
+// 1. Gather URLs (waymore + paramspider)
 // 2. Deduplicate with uro
 // 3. Run nuclei -dast
 func RunDAST(ctx context.Context, cfg *config.Config, reconResult *recon.Result, store *findings.Store, cycle int) *Result {
@@ -40,9 +40,11 @@ func RunDAST(ctx context.Context, cfg *config.Config, reconResult *recon.Result,
 
 	urlCount := recon.CountLines(urlsFile)
 	if urlCount == 0 {
-		logger.Info("no parameterized URLs found", "target", target)
+		logger.Info("no URLs found for DAST", "target", target)
 		return &Result{Target: target}
 	}
+
+	logger.Info("DAST URLs ready", "target", target, "urls", urlCount)
 
 	// Step 2: Run nuclei DAST
 	dastFindings := runNucleiDAST(ctx, cfg, urlsFile, outputDir, target, store, cycle)
@@ -73,6 +75,7 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 	// Read live subdomains
 	subdomains := readLines(liveSubsFile)
 	if len(subdomains) == 0 {
+		logger.Warn("no live subdomains for URL gathering", "target", target)
 		return filepath.Join(outputDir, "all_urls.txt")
 	}
 
@@ -102,8 +105,11 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 					allURLs[u] = true
 				}
 				mu.Unlock()
+				logger.Info("waymore done", "domain", d, "urls_found", len(urls))
 			}(domain)
 		}
+	} else {
+		logger.Warn("waymore not found, skipping archive URL gathering")
 	}
 
 	// Run paramspider on subdomains (limited, if available)
@@ -129,19 +135,25 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 
 	wg.Wait()
 
-	// Filter to only parameterized URLs
-	var paramURLs []string
+	// Collect ALL URLs (no aggressive param-only filter)
+	// nuclei -dast can test any URL, not just parameterized ones
+	var cleanURLs []string
 	for url := range allURLs {
-		if strings.Contains(url, "?") && strings.Contains(url, "=") {
-			paramURLs = append(paramURLs, url)
+		url = strings.TrimSpace(url)
+		if url == "" {
+			continue
+		}
+		// Basic sanity: must look like a URL
+		if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+			cleanURLs = append(cleanURLs, url)
 		}
 	}
 
 	// Write raw URLs
 	rawFile := filepath.Join(outputDir, "all_urls_raw.txt")
-	writeLines(rawFile, paramURLs)
+	writeLines(rawFile, cleanURLs)
 
-	logger.Info("gathered raw URLs", "target", target, "count", len(paramURLs))
+	logger.Info("gathered raw URLs", "target", target, "count", len(cleanURLs))
 
 	// Deduplicate with uro
 	return runUro(ctx, cfg, rawFile, outputDir)
@@ -160,17 +172,44 @@ func runWaymore(ctx context.Context, cfg *config.Config, domain, urlsDir string)
 	logger.Info("running waymore", "domain", domain)
 	timeout := time.Duration(cfg.DAST.WaymoreTimeout) * time.Second
 	result := runner.Run(ctx, cmd, timeout)
+
 	if !result.Success {
-		logger.Warn("waymore error", "domain", domain, "error", result.Err)
+		logger.Warn("waymore completed with errors",
+			"domain", domain,
+			"error", result.Err,
+			"stderr", truncateStr(result.Stderr, 500),
+		)
 	}
 
-	return readLines(outputFile)
+	// Read from the -oU output file
+	urls := readLines(outputFile)
+
+	// Fallback: check waymore's default output directory
+	if len(urls) == 0 {
+		homeDir, _ := os.UserHomeDir()
+		defaultDir := filepath.Join(homeDir, ".waymore", "results", domain)
+		defaultFile := filepath.Join(defaultDir, "waymore.txt")
+		if _, err := os.Stat(defaultFile); err == nil {
+			logger.Info("reading waymore default output", "path", defaultFile)
+			urls = readLines(defaultFile)
+		}
+
+		// Also try URLs file in default dir
+		urlsDefault := filepath.Join(defaultDir, "URLs.txt")
+		if _, err := os.Stat(urlsDefault); err == nil {
+			logger.Info("reading waymore URLs.txt", "path", urlsDefault)
+			extra := readLines(urlsDefault)
+			urls = append(urls, extra...)
+		}
+	}
+
+	return urls
 }
 
 func runParamspider(ctx context.Context, cfg *config.Config, subdomain, urlsDir string) []string {
-	// ParamSpider saves to results/<subdomain>.txt relative to cwd
-	resultsDir := filepath.Join(urlsDir, "results")
-	os.MkdirAll(resultsDir, 0o755)
+	// ParamSpider saves to results/<subdomain>.txt or output/<subdomain>.txt relative to cwd
+	os.MkdirAll(filepath.Join(urlsDir, "results"), 0o755)
+	os.MkdirAll(filepath.Join(urlsDir, "output"), 0o755)
 
 	cmd := []string{
 		cfg.Tools.Paramspider,
@@ -181,12 +220,29 @@ func runParamspider(ctx context.Context, cfg *config.Config, subdomain, urlsDir 
 	timeout := time.Duration(cfg.DAST.ParamspiderTimeout) * time.Second
 	result := runner.RunWithWorkDir(ctx, cmd, urlsDir, timeout)
 	if !result.Success {
-		logger.Warn("paramspider error", "subdomain", subdomain, "error", result.Err)
+		logger.Warn("paramspider error",
+			"subdomain", subdomain,
+			"error", result.Err,
+			"stderr", truncateStr(result.Stderr, 300),
+		)
 	}
 
-	// Read from the expected output location
-	resultFile := filepath.Join(resultsDir, subdomain+".txt")
-	return readLines(resultFile)
+	// Check multiple possible output locations
+	var allURLs []string
+	candidates := []string{
+		filepath.Join(urlsDir, "results", subdomain+".txt"),
+		filepath.Join(urlsDir, "output", subdomain+".txt"),
+		filepath.Join(urlsDir, subdomain+".txt"),
+	}
+
+	for _, path := range candidates {
+		if lines := readLines(path); len(lines) > 0 {
+			logger.Info("paramspider output found", "path", path, "urls", len(lines))
+			allURLs = append(allURLs, lines...)
+		}
+	}
+
+	return allURLs
 }
 
 func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) string {
@@ -213,7 +269,7 @@ func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) 
 	os.Remove(normalizedFile)
 
 	if !result.Success {
-		logger.Warn("uro error, using normalized URLs", "error", result.Err)
+		logger.Warn("uro error, using raw URLs", "error", result.Err)
 		copyFile(rawFile, outputFile)
 	} else {
 		rawCount := recon.CountLines(rawFile)
@@ -288,6 +344,8 @@ func readLines(filePath string) []string {
 
 	var lines []string
 	s := bufio.NewScanner(f)
+	// Handle very long lines (some URLs can be 64KB+)
+	s.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line != "" {
@@ -336,4 +394,11 @@ func copyFile(src, dst string) {
 		return
 	}
 	os.WriteFile(dst, data, 0o644)
+}
+
+func truncateStr(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }

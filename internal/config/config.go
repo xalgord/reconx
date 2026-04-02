@@ -248,7 +248,7 @@ func (c *Config) applyDefaults() {
 		c.DAST.MaxParamspiderSubs = 10
 	}
 	if c.DAST.WaymoreTimeout <= 0 {
-		c.DAST.WaymoreTimeout = 600
+		c.DAST.WaymoreTimeout = 1800 // 30 min — waymore hits rate limits
 	}
 	if c.DAST.ParamspiderTimeout <= 0 {
 		c.DAST.ParamspiderTimeout = 300
@@ -479,7 +479,7 @@ dast:
   timeout: 20
   scan_timeout: 7200
   max_paramspider_subs: 10
-  waymore_timeout: 600
+  waymore_timeout: 1800   # 30 min (rate limits from APIs)
   paramspider_timeout: 300
   uro_timeout: 300
 
