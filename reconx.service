@@ -1,0 +1,28 @@
+[Unit]
+Description=ReconX — 24x7 Security Recon & Vuln Scanner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=RECONX_BIN run -config CONFIG_PATH
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=reconx
+
+# Security hardening (unlike the old Python version, no root needed)
+# Uncomment and set your user:
+# User=reconx
+# Group=reconx
+
+# File limits for high concurrency
+LimitNOFILE=65535
+
+# Graceful shutdown
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
