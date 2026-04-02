@@ -16,23 +16,57 @@
 - **Enforced timeouts** — Every subprocess has a configurable timeout (no more stuck workers)
 - **Graceful shutdown** — Context cancellation propagation on SIGINT/SIGTERM
 
+## Installation
+
+### Go Install (recommended)
+
+```bash
+go install github.com/xalgord/reconx/cmd/reconx@latest
+```
+
+### Pre-built Binaries
+
+Download from [Releases](https://github.com/xalgord/reconx/releases/latest):
+
+```bash
+# Linux (amd64)
+curl -sL https://github.com/xalgord/reconx/releases/latest/download/reconx_linux_amd64 -o reconx
+chmod +x reconx
+sudo mv reconx /usr/local/bin/
+
+# Linux (arm64)
+curl -sL https://github.com/xalgord/reconx/releases/latest/download/reconx_linux_arm64 -o reconx
+chmod +x reconx
+sudo mv reconx /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -sL https://github.com/xalgord/reconx/releases/latest/download/reconx_darwin_arm64 -o reconx
+chmod +x reconx
+sudo mv reconx /usr/local/bin/
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/xalgord/reconx.git
+cd reconx
+go build -o reconx ./cmd/reconx/
+```
+
 ## Quick Start
 
 ```bash
-# Build
-go build -o reconx ./cmd/reconx/
-
 # Generate config
-./reconx init
+reconx init
 
 # Edit config — set targets_file, dashboard password, Discord webhooks
 vim ~/.config/reconx/config.yaml
 
 # Validate config + check tools
-./reconx check
+reconx check
 
 # Start the pipeline
-./reconx run
+reconx run
 ```
 
 ## Config

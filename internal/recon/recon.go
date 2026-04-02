@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xalgord1/reconx/internal/config"
-	"github.com/xalgord1/reconx/internal/runner"
+	"github.com/xalgord/reconx/internal/config"
+	"github.com/xalgord/reconx/internal/runner"
 )
 
 // Result holds the outcome of a recon phase for a single target.

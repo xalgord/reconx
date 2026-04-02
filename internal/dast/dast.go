@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xalgord1/reconx/internal/config"
-	"github.com/xalgord1/reconx/internal/findings"
-	"github.com/xalgord1/reconx/internal/recon"
-	"github.com/xalgord1/reconx/internal/runner"
-	"github.com/xalgord1/reconx/internal/scanner"
+	"github.com/xalgord/reconx/internal/config"
+	"github.com/xalgord/reconx/internal/findings"
+	"github.com/xalgord/reconx/internal/recon"
+	"github.com/xalgord/reconx/internal/runner"
+	"github.com/xalgord/reconx/internal/scanner"
 )
 
 // Result holds the outcome of the DAST phase.

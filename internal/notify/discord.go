@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xalgord1/reconx/internal/config"
+	"github.com/xalgord/reconx/internal/config"
 )
 
 // Severity color codes for Discord embeds.

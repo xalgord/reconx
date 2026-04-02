@@ -1,4 +1,4 @@
-module github.com/xalgord1/reconx
+module github.com/xalgord/reconx
 
 go 1.24.13
 

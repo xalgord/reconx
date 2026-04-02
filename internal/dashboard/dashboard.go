@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xalgord1/reconx/internal/config"
-	"github.com/xalgord1/reconx/internal/findings"
-	"github.com/xalgord1/reconx/internal/state"
-	"github.com/xalgord1/reconx/web"
+	"github.com/xalgord/reconx/internal/config"
+	"github.com/xalgord/reconx/internal/findings"
+	"github.com/xalgord/reconx/internal/state"
+	"github.com/xalgord/reconx/web"
 )
 
 // session store (in-memory, simple)

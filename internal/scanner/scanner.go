@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xalgord1/reconx/internal/config"
-	"github.com/xalgord1/reconx/internal/findings"
-	"github.com/xalgord1/reconx/internal/recon"
-	"github.com/xalgord1/reconx/internal/runner"
+	"github.com/xalgord/reconx/internal/config"
+	"github.com/xalgord/reconx/internal/findings"
+	"github.com/xalgord/reconx/internal/recon"
+	"github.com/xalgord/reconx/internal/runner"
 )
 
 // RunNucleiCVE runs a nuclei CVE scan on live hosts for a target.
