@@ -267,7 +267,7 @@ func (c *Config) applyDefaults() {
 
 	// Dashboard defaults
 	if c.Dashboard.Host == "" {
-		c.Dashboard.Host = "127.0.0.1"
+		c.Dashboard.Host = "0.0.0.0"
 	}
 	if c.Dashboard.Port <= 0 {
 		c.Dashboard.Port = 8080
@@ -491,7 +491,7 @@ pipeline:
 # Dashboard
 dashboard:
   enabled: true
-  host: "127.0.0.1"
+  host: "0.0.0.0"
   port: 8080
   username: "admin"
   password: "changeme"
