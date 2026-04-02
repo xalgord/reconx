@@ -8,7 +8,7 @@
 - **Subdomain enumeration** — subfinder, findomain, assetfinder (concurrent)
 - **DNS resolution** — dnsx with configurable rate limits
 - **Nuclei CVE scanning** — Critical/High severity with JSONL output
-- **DAST scanning** — URL gathering (waymore + paramspider) → dedup (uro) → nuclei -dast
+- **DAST scanning** — URL gathering (waymore + paramspider + gospider) → dedup (uro) → nuclei -dast
 - **Discord notifications** — Rich embeds, color-coded by severity, multiple webhook targets
 - **Web dashboard** — Dark-themed monitoring UI with findings, stats, filters, pagination
 - **YAML config** — Everything configurable via `~/.config/reconx/config.yaml`
@@ -86,7 +86,7 @@ discord:
 
 dashboard:
   enabled: true
-  host: "127.0.0.1"
+  host: "0.0.0.0"
   port: 8080
   username: "admin"
   password: "changeme"
@@ -99,6 +99,12 @@ dashboard:
 | `reconx run` | Start the 24x7 pipeline |
 | `reconx init` | Generate example config |
 | `reconx check` | Validate config + check tools |
+| `reconx service install` | Install as systemd service (background) |
+| `reconx service stop` | Stop the service |
+| `reconx service restart` | Restart the service |
+| `reconx service status` | Show service status |
+| `reconx service logs` | Tail service logs |
+| `reconx service uninstall` | Remove systemd service |
 | `reconx version` | Print version |
 
 ## Required Tools
@@ -114,6 +120,7 @@ Must be in `$PATH` or configured in `tools:` section:
 | assetfinder | Optional | Subdomain enumeration |
 | waymore | Optional | URL gathering (archives) |
 | paramspider | Optional | URL parameter discovery |
+| gospider | Optional | Web spidering + URL crawling |
 | uro | Optional | URL deduplication |
 
 ## Architecture
@@ -121,12 +128,13 @@ Must be in `$PATH` or configured in `tools:` section:
 ```
 Targets File → [Recon Workers (5x)] → [Scan Queue] → [Scan Workers (10x)]
                     ↓                                       ↓
-              subfinder                              Nuclei CVE
-              findomain                              DAST Phase:
-              assetfinder                              waymore
-              → merge/dedup                            paramspider
-              → dnsx resolve                           → uro dedup
-                                                       → nuclei -dast
+               subfinder                              Nuclei CVE
+               findomain                              DAST Phase:
+               assetfinder                              waymore
+               → merge/dedup                            paramspider
+               → dnsx resolve                           gospider
+                                                        → uro dedup
+                                                        → nuclei -dast
                                                             ↓
                                                     Findings Store (JSONL)
                                                             ↓

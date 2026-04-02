@@ -28,55 +28,59 @@ tools:
   nuclei: ""
   waymore: ""
   paramspider: ""
+  gospider: ""
   uro: ""
 
 # Recon Settings
 recon:
-  parallel_targets: 5      # concurrent recon workers
-  subfinder_threads: 200
+  parallel_targets: 2        # concurrent recon workers
+  subfinder_threads: 50
 
 # DNS Resolution
 dns:
-  resolvers_file: ""       # auto: <data_dir>/resolvers.txt
-  rate_limit: 500
-  threads: 100
+  resolvers_file: ""         # auto: <data_dir>/resolvers.txt
+  rate_limit: 200
+  threads: 50
 
 # Nuclei CVE Scan
 nuclei:
   severity: ["critical", "high"]
-  rate_limit: 100
-  concurrency: 50
-  bulk_size: 30
-  timeout: 20              # per-request timeout (seconds)
-  scan_timeout: 7200       # total scan timeout per target (seconds) — 2 hours
+  rate_limit: 50
+  concurrency: 15
+  bulk_size: 10
+  timeout: 20                # per-request timeout (seconds)
+  scan_timeout: 7200         # total scan timeout per target (seconds) — 2 hours
   exclude_ids: ["CVE-2021-35042"]
 
 # DAST Settings
 dast:
-  rate_limit: 150
-  concurrency: 25
+  rate_limit: 50
+  concurrency: 10
   timeout: 20
   scan_timeout: 7200
   max_paramspider_subs: 10   # max subdomains to run paramspider on
-  waymore_timeout: 600       # 10 minutes
+  waymore_timeout: 1800      # 30 min (APIs have rate limits)
   paramspider_timeout: 300   # 5 minutes
+  gospider_timeout: 600      # 10 min per domain
+  gospider_concurrency: 5    # concurrent crawlers
+  gospider_depth: 2          # crawl depth
   uro_timeout: 300           # 5 minutes
 
 # Pipeline
 pipeline:
-  parallel_scans: 10       # concurrent scan workers
-  cycle_delay: 60          # seconds between cycles
+  parallel_scans: 3          # concurrent scan workers
+  cycle_delay: 60            # seconds between cycles
 
 # Dashboard
 dashboard:
   enabled: true
-  host: "127.0.0.1"        # bind to localhost only by default
+  host: "0.0.0.0"            # bind to all interfaces (remote access)
   port: 8080
   username: "admin"
-  password: "changeme"     # CHANGE THIS!
-  secret_key: ""           # auto-generated if empty
+  password: "changeme"       # CHANGE THIS!
+  secret_key: ""             # auto-generated if empty
 
 # Logging
 logging:
-  level: "info"            # debug, info, warn, error
-  file: ""                 # auto: <logs_dir>/reconx.log
+  level: "info"              # debug, info, warn, error
+  file: ""                   # auto: <logs_dir>/reconx.log
