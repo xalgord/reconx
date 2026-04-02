@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"sort"
 	"strings"
@@ -91,7 +91,7 @@ func (s *Store) Add(f Finding) bool {
 
 	// Append to file
 	if err := s.appendToFile(f); err != nil {
-		slog.Error("failed to save finding", "error", err)
+		logger.Error("failed to save finding", "error", err)
 		return false
 	}
 
@@ -399,7 +399,7 @@ func (s *Store) loadIndex() {
 	}
 
 	s.loaded = true
-	slog.Info("loaded findings", "count", len(s.cache))
+	logger.Info("loaded findings", "count", len(s.cache))
 }
 
 func (s *Store) ensureLoaded() {

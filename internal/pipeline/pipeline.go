@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"math/rand"
 	"net/url"
 	"os"
@@ -44,14 +44,14 @@ func (p *Pipeline) Run(ctx context.Context) error {
 	st := p.state.GetState()
 	cycle := st.Cycle
 
-	slog.Info("starting pipeline",
+	logger.Info("starting pipeline",
 		"starting_cycle", cycle+1,
 	)
 
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("pipeline stopped")
+			logger.Info("pipeline stopped")
 			return ctx.Err()
 		default:
 		}
@@ -64,7 +64,7 @@ func (p *Pipeline) Run(ctx context.Context) error {
 		}
 
 		delay := time.Duration(p.cfg.Pipeline.CycleDelay) * time.Second
-		slog.Info("cycle complete, waiting before next",
+		logger.Info("cycle complete, waiting before next",
 			"cycle", cycle,
 			"delay", delay,
 		)
@@ -83,7 +83,7 @@ func (p *Pipeline) runCycle(ctx context.Context, cycle int) {
 	// Load and shuffle targets
 	targets := loadTargets(p.cfg.TargetsFile)
 	if len(targets) == 0 {
-		slog.Error("no targets loaded")
+		logger.Error("no targets loaded")
 		return
 	}
 
@@ -108,7 +108,7 @@ func (p *Pipeline) runCycle(ctx context.Context, cycle int) {
 		s.StatusMessage = fmt.Sprintf("Starting cycle %d (parallel pipeline)", cycle)
 	})
 
-	slog.Info("cycle started",
+	logger.Info("cycle started",
 		"cycle", cycle,
 		"targets", len(targets),
 	)
@@ -148,11 +148,11 @@ func (p *Pipeline) runCycle(ctx context.Context, cycle int) {
 	// Wait for all recon workers to finish, then close the channel
 	reconWG.Wait()
 	close(reconCh)
-	slog.Info("all recon workers finished", "cycle", cycle)
+	logger.Info("all recon workers finished", "cycle", cycle)
 
 	// Wait for all scan workers to drain the channel
 	scanWG.Wait()
-	slog.Info("all scan workers finished", "cycle", cycle)
+	logger.Info("all scan workers finished", "cycle", cycle)
 
 	// Get final stats
 	stats := p.state.GetStats()
@@ -189,7 +189,7 @@ func (p *Pipeline) reconWorker(ctx context.Context, workerID int, targets []inde
 
 		result, err := recon.RunRecon(ctx, p.cfg, t.Target, t.Index, total)
 		if err != nil {
-			slog.Error("recon error", "target", t.Target, "error", err)
+			logger.Error("recon error", "target", t.Target, "error", err)
 			continue
 		}
 
@@ -220,7 +220,7 @@ func (p *Pipeline) scanWorker(ctx context.Context, workerID int, in <-chan *reco
 		target := result.Target
 		p.state.SetCurrentTarget(target, result.TargetIndex)
 
-		slog.Info("starting full scan",
+		logger.Info("starting full scan",
 			"target", target,
 			"live_hosts", result.LiveHostCount,
 			"worker", workerID,
@@ -299,7 +299,7 @@ func (p *Pipeline) cleanupCycle() {
 		}
 	}
 
-	slog.Info("cleaned up cycle output")
+	logger.Info("cleaned up cycle output")
 }
 
 // --- Helpers ---
@@ -324,7 +324,7 @@ func distributeBatches(targets []string, numWorkers int) [][]indexedTarget {
 func loadTargets(filePath string) []string {
 	f, err := os.Open(filePath)
 	if err != nil {
-		slog.Error("failed to load targets", "file", filePath, "error", err)
+		logger.Error("failed to load targets", "file", filePath, "error", err)
 		return nil
 	}
 	defer f.Close()
@@ -338,7 +338,7 @@ func loadTargets(filePath string) []string {
 		}
 	}
 
-	slog.Info("loaded targets", "count", len(targets), "file", filePath)
+	logger.Info("loaded targets", "count", len(targets), "file", filePath)
 	return targets
 }
 

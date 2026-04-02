@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +21,7 @@ import (
 // Returns the list of new (unique) findings saved.
 func RunNucleiCVE(ctx context.Context, cfg *config.Config, reconResult *recon.Result, store *findings.Store, cycle int) []findings.Finding {
 	if cfg.Tools.Nuclei == "" {
-		slog.Error("nuclei not found, skipping CVE scan")
+		logger.Error("nuclei not found, skipping CVE scan")
 		return nil
 	}
 
@@ -55,7 +55,7 @@ func RunNucleiCVE(ctx context.Context, cfg *config.Config, reconResult *recon.Re
 		cmd = append(cmd, "-exclude-id", id)
 	}
 
-	slog.Info("running nuclei CVE scan",
+	logger.Info("running nuclei CVE scan",
 		"target", reconResult.Target,
 		"hosts", hostCount,
 	)
@@ -64,7 +64,7 @@ func RunNucleiCVE(ctx context.Context, cfg *config.Config, reconResult *recon.Re
 	result := runner.Run(ctx, cmd, timeout)
 
 	if !result.Success && result.Err != nil {
-		slog.Error("nuclei CVE scan error",
+		logger.Error("nuclei CVE scan error",
 			"target", reconResult.Target,
 			"error", result.Err,
 		)
@@ -127,7 +127,7 @@ func ParseAndSaveFindings(outputFile string, store *findings.Store, target, scan
 		}
 	}
 
-	slog.Info("nuclei findings parsed",
+	logger.Info("nuclei findings parsed",
 		"target", target,
 		"scan_type", scanType,
 		"total_saved", len(saved),

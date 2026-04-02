@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"net/http"
 	"os"
 	"strconv"
@@ -52,7 +52,7 @@ func New(cfg *config.DashboardConfig, st *state.Manager, store *findings.Store, 
 	var err error
 	d.tmpl, err = template.ParseFS(web.Templates, "templates/*.html")
 	if err != nil {
-		slog.Error("failed to parse templates", "error", err)
+		logger.Error("failed to parse templates", "error", err)
 	}
 
 	// Register routes
@@ -76,7 +76,7 @@ func New(cfg *config.DashboardConfig, st *state.Manager, store *findings.Store, 
 // ListenAndServe starts the dashboard server.
 func (d *Dashboard) ListenAndServe() error {
 	addr := fmt.Sprintf("%s:%d", d.cfg.Host, d.cfg.Port)
-	slog.Info("dashboard starting", "address", addr)
+	logger.Info("dashboard starting", "address", addr)
 
 	server := &http.Server{
 		Addr:         addr,

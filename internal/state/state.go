@@ -2,7 +2,7 @@ package state
 
 import (
 	"encoding/json"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"sync"
 	"time"
@@ -146,12 +146,12 @@ func (m *Manager) Stop() {
 func (m *Manager) load() {
 	data, err := os.ReadFile(m.filePath)
 	if err != nil {
-		slog.Info("no previous state found, starting fresh")
+		logger.Info("no previous state found, starting fresh")
 		return
 	}
 
 	if err := json.Unmarshal(data, &m.state); err != nil {
-		slog.Warn("failed to parse previous state", "error", err)
+		logger.Warn("failed to parse previous state", "error", err)
 	}
 }
 
@@ -179,12 +179,12 @@ func (m *Manager) persist() {
 	m.mu.RUnlock()
 
 	if err != nil {
-		slog.Error("failed to marshal state", "error", err)
+		logger.Error("failed to marshal state", "error", err)
 		return
 	}
 
 	if err := os.WriteFile(m.filePath, data, 0o644); err != nil {
-		slog.Error("failed to save state", "error", err)
+		logger.Error("failed to save state", "error", err)
 		return
 	}
 

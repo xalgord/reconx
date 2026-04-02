@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,21 +33,21 @@ func RunDAST(ctx context.Context, cfg *config.Config, reconResult *recon.Result,
 	target := reconResult.Target
 	outputDir := reconResult.OutputDir
 
-	slog.Info("starting DAST phase", "target", target)
+	logger.Info("starting DAST phase", "target", target)
 
 	// Step 1: Gather URLs
 	urlsFile := gatherURLs(ctx, cfg, target, reconResult.LiveSubsFile, outputDir)
 
 	urlCount := recon.CountLines(urlsFile)
 	if urlCount == 0 {
-		slog.Info("no parameterized URLs found", "target", target)
+		logger.Info("no parameterized URLs found", "target", target)
 		return &Result{Target: target}
 	}
 
 	// Step 2: Run nuclei DAST
 	dastFindings := runNucleiDAST(ctx, cfg, urlsFile, outputDir, target, store, cycle)
 
-	slog.Info("DAST phase complete",
+	logger.Info("DAST phase complete",
 		"target", target,
 		"urls", urlCount,
 		"findings", len(dastFindings),
@@ -82,7 +82,7 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 		rootDomains[extractRootDomain(sub)] = true
 	}
 
-	slog.Info("gathering URLs",
+	logger.Info("gathering URLs",
 		"target", target,
 		"subdomains", len(subdomains),
 		"root_domains", len(rootDomains),
@@ -141,7 +141,7 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 	rawFile := filepath.Join(outputDir, "all_urls_raw.txt")
 	writeLines(rawFile, paramURLs)
 
-	slog.Info("gathered raw URLs", "target", target, "count", len(paramURLs))
+	logger.Info("gathered raw URLs", "target", target, "count", len(paramURLs))
 
 	// Deduplicate with uro
 	return runUro(ctx, cfg, rawFile, outputDir)
@@ -157,11 +157,11 @@ func runWaymore(ctx context.Context, cfg *config.Config, domain, urlsDir string)
 		"-oU", outputFile,
 	}
 
-	slog.Info("running waymore", "domain", domain)
+	logger.Info("running waymore", "domain", domain)
 	timeout := time.Duration(cfg.DAST.WaymoreTimeout) * time.Second
 	result := runner.Run(ctx, cmd, timeout)
 	if !result.Success {
-		slog.Warn("waymore error", "domain", domain, "error", result.Err)
+		logger.Warn("waymore error", "domain", domain, "error", result.Err)
 	}
 
 	return readLines(outputFile)
@@ -177,11 +177,11 @@ func runParamspider(ctx context.Context, cfg *config.Config, subdomain, urlsDir 
 		"-d", subdomain,
 	}
 
-	slog.Info("running paramspider", "subdomain", subdomain)
+	logger.Info("running paramspider", "subdomain", subdomain)
 	timeout := time.Duration(cfg.DAST.ParamspiderTimeout) * time.Second
 	result := runner.RunWithWorkDir(ctx, cmd, urlsDir, timeout)
 	if !result.Success {
-		slog.Warn("paramspider error", "subdomain", subdomain, "error", result.Err)
+		logger.Warn("paramspider error", "subdomain", subdomain, "error", result.Err)
 	}
 
 	// Read from the expected output location
@@ -194,7 +194,7 @@ func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) 
 
 	if cfg.Tools.Uro == "" {
 		// No uro available — use raw file as-is
-		slog.Warn("uro not found, using raw URLs")
+		logger.Warn("uro not found, using raw URLs")
 		copyFile(rawFile, outputFile)
 		return outputFile
 	}
@@ -205,7 +205,7 @@ func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) 
 
 	cmd := []string{cfg.Tools.Uro}
 
-	slog.Info("running uro deduplication")
+	logger.Info("running uro deduplication")
 	timeout := time.Duration(cfg.DAST.UroTimeout) * time.Second
 	result := runner.RunWithStdin(ctx, cmd, normalizedFile, outputFile, timeout)
 
@@ -213,12 +213,12 @@ func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) 
 	os.Remove(normalizedFile)
 
 	if !result.Success {
-		slog.Warn("uro error, using normalized URLs", "error", result.Err)
+		logger.Warn("uro error, using normalized URLs", "error", result.Err)
 		copyFile(rawFile, outputFile)
 	} else {
 		rawCount := recon.CountLines(rawFile)
 		uroCount := recon.CountLines(outputFile)
-		slog.Info("uro deduplication complete",
+		logger.Info("uro deduplication complete",
 			"before", rawCount,
 			"after", uroCount,
 			"removed", rawCount-uroCount,
@@ -256,13 +256,13 @@ func runNucleiDAST(ctx context.Context, cfg *config.Config, urlsFile, outputDir,
 		cmd = append(cmd, "-exclude-id", id)
 	}
 
-	slog.Info("running nuclei DAST", "target", target, "urls", urlCount)
+	logger.Info("running nuclei DAST", "target", target, "urls", urlCount)
 
 	timeout := time.Duration(cfg.DAST.ScanTimeout) * time.Second
 	result := runner.Run(ctx, cmd, timeout)
 
 	if !result.Success && result.Err != nil {
-		slog.Error("nuclei DAST error", "target", target, "error", result.Err)
+		logger.Error("nuclei DAST error", "target", target, "error", result.Err)
 	}
 
 	// Use shared parsing from scanner package

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,7 +46,7 @@ func Run(ctx context.Context, cmd []string, timeout time.Duration) Result {
 	duration := time.Since(start)
 
 	if ctx.Err() == context.DeadlineExceeded {
-		slog.Warn("command timed out",
+		logger.Warn("command timed out",
 			"cmd", cmd[0],
 			"timeout", timeout,
 			"duration", duration,
@@ -111,7 +111,7 @@ func RunToFile(ctx context.Context, cmd []string, outputFile string, timeout tim
 	duration := time.Since(start)
 
 	if ctx.Err() == context.DeadlineExceeded {
-		slog.Warn("command timed out",
+		logger.Warn("command timed out",
 			"cmd", cmd[0],
 			"output_file", outputFile,
 			"timeout", timeout,

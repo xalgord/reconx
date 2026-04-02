@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -352,12 +352,12 @@ func (c *Config) CheckTools() []string {
 			}
 			if isRequired {
 				missing = append(missing, name)
-				slog.Error("tool not found", "tool", name)
+				logger.Error("tool not found", "tool", name)
 			} else {
-				slog.Warn("tool not found (optional)", "tool", name)
+				logger.Warn("tool not found (optional)", "tool", name)
 			}
 		} else {
-			slog.Info("tool found", "tool", name, "path", path)
+			logger.Info("tool found", "tool", name, "path", path)
 		}
 	}
 	return missing

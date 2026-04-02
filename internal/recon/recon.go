@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"path/filepath"
 	"sort"
@@ -87,7 +87,7 @@ func RunRecon(ctx context.Context, cfg *config.Config, target string, targetInde
 	// Merge and deduplicate
 	allSubsFile := filepath.Join(targetDir, "all_subdomains.txt")
 	subCount := mergeSubdomains(outputFiles, allSubsFile)
-	slog.Info("subdomain enumeration complete",
+	logger.Info("subdomain enumeration complete",
 		"target", target,
 		"subdomains", subCount,
 	)
@@ -95,7 +95,7 @@ func RunRecon(ctx context.Context, cfg *config.Config, target string, targetInde
 	// DNS resolution
 	liveSubsFile := filepath.Join(targetDir, "live_subs.txt")
 	liveCount := runDnsxResolve(ctx, cfg, allSubsFile, liveSubsFile)
-	slog.Info("DNS resolution complete",
+	logger.Info("DNS resolution complete",
 		"target", target,
 		"live_hosts", liveCount,
 	)
@@ -123,10 +123,10 @@ func runSubfinder(ctx context.Context, cfg *config.Config, target, targetDir str
 		"-o", outputFile,
 	}
 
-	slog.Info("running subfinder", "target", target)
+	logger.Info("running subfinder", "target", target)
 	result := runner.Run(ctx, cmd, 30*time.Minute)
 	if !result.Success {
-		slog.Warn("subfinder error", "target", target, "error", result.Err)
+		logger.Warn("subfinder error", "target", target, "error", result.Err)
 	}
 	return outputFile
 }
@@ -140,10 +140,10 @@ func runFindomain(ctx context.Context, cfg *config.Config, target, targetDir str
 		"-t", target,
 	}
 
-	slog.Info("running findomain", "target", target)
+	logger.Info("running findomain", "target", target)
 	result := runner.RunToFile(ctx, cmd, outputFile, 20*time.Minute)
 	if !result.Success {
-		slog.Warn("findomain error", "target", target, "error", result.Err)
+		logger.Warn("findomain error", "target", target, "error", result.Err)
 	}
 	return outputFile
 }
@@ -157,10 +157,10 @@ func runAssetfinder(ctx context.Context, cfg *config.Config, target, targetDir s
 		target,
 	}
 
-	slog.Info("running assetfinder", "target", target)
+	logger.Info("running assetfinder", "target", target)
 	result := runner.RunToFile(ctx, cmd, outputFile, 20*time.Minute)
 	if !result.Success {
-		slog.Warn("assetfinder error", "target", target, "error", result.Err)
+		logger.Warn("assetfinder error", "target", target, "error", result.Err)
 	}
 	return outputFile
 }
@@ -192,7 +192,7 @@ func mergeSubdomains(files []string, outputFile string) int {
 
 	f, err := os.Create(outputFile)
 	if err != nil {
-		slog.Error("failed to create merged subs file", "error", err)
+		logger.Error("failed to create merged subs file", "error", err)
 		return 0
 	}
 	defer f.Close()
@@ -208,7 +208,7 @@ func mergeSubdomains(files []string, outputFile string) int {
 
 func runDnsxResolve(ctx context.Context, cfg *config.Config, inputFile, outputFile string) int {
 	if cfg.Tools.Dnsx == "" {
-		slog.Error("dnsx not found, skipping DNS resolution")
+		logger.Error("dnsx not found, skipping DNS resolution")
 		return 0
 	}
 
@@ -227,10 +227,10 @@ func runDnsxResolve(ctx context.Context, cfg *config.Config, inputFile, outputFi
 		cmd = append(cmd, "-r", cfg.DNS.ResolversFile)
 	}
 
-	slog.Info("running dnsx resolve")
+	logger.Info("running dnsx resolve")
 	result := runner.Run(ctx, cmd, 30*time.Minute)
 	if !result.Success {
-		slog.Warn("dnsx error", "error", result.Err)
+		logger.Warn("dnsx error", "error", result.Err)
 	}
 
 	// Deduplicate the output (replaces shell sort -u)

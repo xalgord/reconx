@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"os"
 	"os/signal"
 	"syscall"
@@ -138,11 +138,11 @@ func cmdRun(args []string) {
 
 	// Ensure directories
 	if err := cfg.EnsureDirs(); err != nil {
-		slog.Error("failed to create directories", "error", err)
+		logger.Error("failed to create directories", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("reconx starting",
+	logger.Info("reconx starting",
 		"version", version,
 		"config", *cfgPath,
 		"targets_file", cfg.TargetsFile,
@@ -162,7 +162,7 @@ func cmdRun(args []string) {
 
 	go func() {
 		sig := <-sigCh
-		slog.Info("shutdown signal received", "signal", sig)
+		logger.Info("shutdown signal received", "signal", sig)
 		notifier.SendStatus("🛑 ReconX Stopped", fmt.Sprintf("Received %s signal", sig), nil)
 		cancel()
 	}()
@@ -172,7 +172,7 @@ func cmdRun(args []string) {
 		dash := dashboard.New(&cfg.Dashboard, stateMgr, store, cfg.Logging.File)
 		go func() {
 			if err := dash.ListenAndServe(); err != nil {
-				slog.Error("dashboard error", "error", err)
+				logger.Error("dashboard error", "error", err)
 			}
 		}()
 	}
@@ -181,28 +181,17 @@ func cmdRun(args []string) {
 	p := pipeline.New(cfg, stateMgr, store, notifier)
 
 	if err := p.Run(ctx); err != nil && err != context.Canceled {
-		slog.Error("pipeline error", "error", err)
+		logger.Error("pipeline error", "error", err)
 		os.Exit(1)
 	}
 
 	// Graceful shutdown
 	stateMgr.Stop()
-	slog.Info("reconx stopped")
+	logger.Info("reconx stopped")
 }
 
 func setupLogging(cfg *config.Config) {
-	// Parse log level
-	var level slog.Level
-	switch cfg.Logging.Level {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
+	logger.SetLevel(cfg.Logging.Level)
 
 	// Create log file writer
 	var writers []io.Writer
@@ -216,7 +205,6 @@ func setupLogging(cfg *config.Config) {
 		}
 	}
 
-	w := io.MultiWriter(writers...)
-	handler := slog.NewTextHandler(w, &slog.HandlerOptions{Level: level})
-	slog.SetDefault(slog.New(handler))
+	logger.SetOutput(io.MultiWriter(writers...))
 }
+

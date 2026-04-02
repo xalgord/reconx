@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
+	"github.com/xalgord/reconx/internal/logger"
 	"net/http"
 	"strings"
 	"time"
@@ -208,7 +208,7 @@ func (n *Notifier) send(webhookKey string, payload discordPayload) {
 
 	data, err := json.Marshal(payload)
 	if err != nil {
-		slog.Error("failed to marshal discord payload", "error", err)
+		logger.Error("failed to marshal discord payload", "error", err)
 		return
 	}
 
@@ -217,21 +217,21 @@ func (n *Notifier) send(webhookKey string, payload discordPayload) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
-		slog.Error("failed to create discord request", "error", err)
+		logger.Error("failed to create discord request", "error", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		slog.Error("discord webhook failed", "error", err, "webhook", webhookKey)
+		logger.Error("discord webhook failed", "error", err, "webhook", webhookKey)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 429 {
 		// Rate limited — wait and retry once
-		slog.Warn("discord rate limited, waiting 2s")
+		logger.Warn("discord rate limited, waiting 2s")
 		time.Sleep(2 * time.Second)
 		resp2, err := n.client.Do(req)
 		if err == nil {
@@ -241,7 +241,7 @@ func (n *Notifier) send(webhookKey string, payload discordPayload) {
 	}
 
 	if resp.StatusCode >= 400 {
-		slog.Error("discord webhook error", "status", resp.StatusCode, "webhook", webhookKey)
+		logger.Error("discord webhook error", "status", resp.StatusCode, "webhook", webhookKey)
 	}
 }
 
