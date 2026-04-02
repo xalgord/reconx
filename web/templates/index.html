@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReconX — Dashboard</title>
+    <meta name="description" content="24x7 Security Reconnaissance Dashboard">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">⚡ ReconX</div>
+        <div class="nav-status" id="navStatus">Connecting...</div>
+        <div class="nav-actions">
+            <button class="btn btn-sm" onclick="toggleHistory()" id="historyBtn">Show History</button>
+            <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Status Cards -->
+        <div class="status-grid">
+            <div class="card stat-card">
+                <div class="stat-label">Cycle</div>
+                <div class="stat-value" id="cycle">—</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Phase</div>
+                <div class="stat-value stat-sm" id="phase">—</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Current Target</div>
+                <div class="stat-value stat-sm" id="currentTarget">—</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value stat-sm" id="uptime">—</div>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="card">
+            <div class="card-header">Pipeline Progress</div>
+            <div class="progress-section">
+                <div class="progress-row">
+                    <span>Recon</span>
+                    <div class="progress-bar"><div class="progress-fill" id="reconProgress"></div></div>
+                    <span id="reconCount">0/0</span>
+                </div>
+                <div class="progress-row">
+                    <span>Scan</span>
+                    <div class="progress-bar"><div class="progress-fill progress-scan" id="scanProgress"></div></div>
+                    <span id="scanCount">0/0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="card mini-stat">
+                <span class="mini-label">Subdomains</span>
+                <span class="mini-value" id="subdomains">0</span>
+            </div>
+            <div class="card mini-stat">
+                <span class="mini-label">Live Hosts</span>
+                <span class="mini-value" id="liveHosts">0</span>
+            </div>
+            <div class="card mini-stat critical">
+                <span class="mini-label">Critical</span>
+                <span class="mini-value" id="criticalCount">0</span>
+            </div>
+            <div class="card mini-stat high">
+                <span class="mini-label">High</span>
+                <span class="mini-value" id="highCount">0</span>
+            </div>
+            <div class="card mini-stat medium">
+                <span class="mini-label">Medium</span>
+                <span class="mini-value" id="mediumCount">0</span>
+            </div>
+            <div class="card mini-stat">
+                <span class="mini-label">Total Findings</span>
+                <span class="mini-value" id="totalFindings">0</span>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card">
+            <div class="card-header">Filters</div>
+            <div class="filter-row">
+                <select id="severityFilter" onchange="loadFindings()">
+                    <option value="all">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+                <select id="scanTypeFilter" onchange="loadFindings()">
+                    <option value="all">All Scan Types</option>
+                    <option value="nuclei-cve">Nuclei CVE</option>
+                    <option value="dast">DAST</option>
+                </select>
+                <input type="text" id="domainFilter" placeholder="Filter by domain..." oninput="debounceLoad()">
+            </div>
+        </div>
+
+        <!-- Findings Table -->
+        <div class="card">
+            <div class="card-header">
+                Findings
+                <span class="badge" id="findingsTotal">0</span>
+            </div>
+            <div class="table-wrap">
+                <table class="findings-table">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Template</th>
+                            <th>Name</th>
+                            <th>Host</th>
+                            <th>Matched At</th>
+                            <th>Type</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="findingsBody">
+                        <tr><td colspan="7" class="empty-row">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card">
+            <div class="card-header">Recent Logs</div>
+            <pre class="log-view" id="logView">Loading logs...</pre>
+        </div>
+    </main>
+
+    <script>
+        let showHistory = false;
+        let currentPage = 1;
+        let debounceTimer;
+
+        function debounceLoad() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadFindings, 300);
+        }
+
+        function toggleHistory() {
+            showHistory = !showHistory;
+            document.getElementById('historyBtn').textContent = showHistory ? 'Current Cycle' : 'Show History';
+            loadAll();
+        }
+
+        async function fetchJSON(url) {
+            const resp = await fetch(url);
+            if (resp.status === 401) {
+                window.location.href = '/login';
+                return null;
+            }
+            return resp.json();
+        }
+
+        async function loadStatus() {
+            const data = await fetchJSON('/api/status');
+            if (!data) return;
+
+            document.getElementById('cycle').textContent = data.cycle || '—';
+            document.getElementById('phase').textContent = data.phase || '—';
+            document.getElementById('currentTarget').textContent = data.current_target || '—';
+            document.getElementById('uptime').textContent = data.uptime || '—';
+            document.getElementById('navStatus').textContent = data.status_message || 'Connected';
+            document.getElementById('subdomains').textContent = (data.subdomains_found || 0).toLocaleString();
+            document.getElementById('liveHosts').textContent = (data.live_hosts_found || 0).toLocaleString();
+
+            // Progress bars
+            const total = data.total_targets || 1;
+            const reconPct = (data.recon_completed / total * 100).toFixed(1);
+            const scanPct = (data.scan_completed / total * 100).toFixed(1);
+            document.getElementById('reconProgress').style.width = reconPct + '%';
+            document.getElementById('scanProgress').style.width = scanPct + '%';
+            document.getElementById('reconCount').textContent = `${data.recon_completed}/${data.total_targets}`;
+            document.getElementById('scanCount').textContent = `${data.scan_completed}/${data.total_targets}`;
+        }
+
+        async function loadStats() {
+            const params = showHistory ? '?history=true' : '';
+            const data = await fetchJSON('/api/stats' + params);
+            if (!data) return;
+
+            document.getElementById('criticalCount').textContent = data.severity_counts?.critical || 0;
+            document.getElementById('highCount').textContent = data.severity_counts?.high || 0;
+            document.getElementById('mediumCount').textContent = data.severity_counts?.medium || 0;
+            document.getElementById('totalFindings').textContent = data.total_findings || 0;
+        }
+
+        async function loadFindings() {
+            const severity = document.getElementById('severityFilter').value;
+            const scanType = document.getElementById('scanTypeFilter').value;
+            const domain = document.getElementById('domainFilter').value;
+
+            let url = `/api/findings?page=${currentPage}&per_page=50`;
+            if (severity !== 'all') url += `&severity=${severity}`;
+            if (scanType !== 'all') url += `&scan_type=${scanType}`;
+            if (domain) url += `&domain=${encodeURIComponent(domain)}`;
+            if (showHistory) url += '&history=true';
+
+            const data = await fetchJSON(url);
+            if (!data) return;
+
+            document.getElementById('findingsTotal').textContent = data.total;
+
+            const tbody = document.getElementById('findingsBody');
+            if (!data.findings || data.findings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No findings</td></tr>';
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = data.findings.map(f => `
+                <tr>
+                    <td><span class="severity-badge sev-${(f.severity || 'unknown').toLowerCase()}">${(f.severity || 'N/A').toUpperCase()}</span></td>
+                    <td class="mono">${escapeHtml(f['template-id'] || f.id || '')}</td>
+                    <td>${escapeHtml(f.name || '')}</td>
+                    <td class="mono">${escapeHtml(f.host || '')}</td>
+                    <td class="mono url-cell" title="${escapeHtml(f['matched-at'] || f.matched_at || '')}">${escapeHtml(truncate(f['matched-at'] || f.matched_at || '', 80))}</td>
+                    <td><span class="type-badge">${escapeHtml(f.scan_type || '')}</span></td>
+                    <td class="time-cell">${formatTime(f.discovered_at)}</td>
+                </tr>
+            `).join('');
+
+            // Pagination
+            const totalPages = data.total_pages || 1;
+            let pag = '';
+            if (totalPages > 1) {
+                if (currentPage > 1) pag += `<button onclick="goPage(${currentPage-1})">← Prev</button>`;
+                pag += `<span>Page ${currentPage} of ${totalPages}</span>`;
+                if (currentPage < totalPages) pag += `<button onclick="goPage(${currentPage+1})">Next →</button>`;
+            }
+            document.getElementById('pagination').innerHTML = pag;
+        }
+
+        async function loadLogs() {
+            const data = await fetchJSON('/api/logs');
+            if (!data) return;
+            const logView = document.getElementById('logView');
+            logView.textContent = (data || []).join('\n') || 'No logs yet';
+            logView.scrollTop = logView.scrollHeight;
+        }
+
+        function goPage(page) {
+            currentPage = page;
+            loadFindings();
+        }
+
+        function loadAll() {
+            loadStatus();
+            loadStats();
+            loadFindings();
+            loadLogs();
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function truncate(str, max) {
+            return str.length > max ? str.substring(0, max) + '...' : str;
+        }
+
+        function formatTime(ts) {
+            if (!ts) return '—';
+            try {
+                const d = new Date(ts);
+                return d.toLocaleString();
+            } catch { return ts; }
+        }
+
+        // Initial load + auto-refresh
+        loadAll();
+        setInterval(loadStatus, 5000);
+        setInterval(loadStats, 10000);
+        setInterval(loadFindings, 15000);
+        setInterval(loadLogs, 30000);
+    </script>
+</body>
+</html>
