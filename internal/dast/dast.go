@@ -133,6 +133,23 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 		}
 	}
 
+	// Run gospider on live subdomains (if available)
+	if cfg.Tools.Gospider != "" {
+		for domain := range rootDomains {
+			wg.Add(1)
+			go func(d string) {
+				defer wg.Done()
+				urls := runGospider(ctx, cfg, d, subdomains, urlsDir)
+				mu.Lock()
+				for _, u := range urls {
+					allURLs[u] = true
+				}
+				mu.Unlock()
+				logger.Info("gospider done", "domain", d, "urls_found", len(urls))
+			}(domain)
+		}
+	}
+
 	wg.Wait()
 
 	// Collect ALL URLs (no aggressive param-only filter)
@@ -243,6 +260,120 @@ func runParamspider(ctx context.Context, cfg *config.Config, subdomain, urlsDir 
 	}
 
 	return allURLs
+}
+
+func runGospider(ctx context.Context, cfg *config.Config, domain string, subdomains []string, urlsDir string) []string {
+	gospiderDir := filepath.Join(urlsDir, fmt.Sprintf("gospider_%s", strings.ReplaceAll(domain, ".", "_")))
+	os.MkdirAll(gospiderDir, 0o755)
+
+	// Build list of seed sites from live subdomains
+	// gospider -S <file> reads sites from a file
+	seedFile := filepath.Join(urlsDir, fmt.Sprintf("gospider_seeds_%s.txt", strings.ReplaceAll(domain, ".", "_")))
+	var seeds []string
+	for _, sub := range subdomains {
+		sub = strings.TrimSpace(sub)
+		if sub != "" {
+			if !strings.HasPrefix(sub, "http") {
+				seeds = append(seeds, "http://"+sub)
+			} else {
+				seeds = append(seeds, sub)
+			}
+		}
+	}
+
+	// If no subdomains, use root domain
+	if len(seeds) == 0 {
+		seeds = append(seeds, "http://"+domain)
+	}
+
+	// Limit seeds to avoid overwhelming a small server
+	maxSeeds := 20
+	if len(seeds) > maxSeeds {
+		seeds = seeds[:maxSeeds]
+	}
+
+	writeLines(seedFile, seeds)
+
+	cmd := []string{
+		cfg.Tools.Gospider,
+		"-S", seedFile,
+		"-o", gospiderDir,
+		"-c", fmt.Sprintf("%d", cfg.DAST.GospiderConcurrency),
+		"-d", fmt.Sprintf("%d", cfg.DAST.GospiderDepth),
+		"--other-source",
+		"--include-subs",
+		"-q", // quiet mode — only output URLs
+	}
+
+	logger.Info("running gospider", "domain", domain, "seeds", len(seeds))
+	timeout := time.Duration(cfg.DAST.GospiderTimeout) * time.Second
+	result := runner.Run(ctx, cmd, timeout)
+
+	if !result.Success {
+		logger.Warn("gospider completed with errors",
+			"domain", domain,
+			"error", result.Err,
+			"stderr", truncateStr(result.Stderr, 500),
+		)
+	}
+
+	// Parse gospider output files — each line may have tags like:
+	// [url] - [code-200] - https://example.com/page
+	// [href] - https://example.com/page
+	// [form] - https://example.com/submit
+	// Or in quiet mode, just raw URLs
+	var allURLs []string
+
+	entries, err := os.ReadDir(gospiderDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		lines := readLines(filepath.Join(gospiderDir, entry.Name()))
+		for _, line := range lines {
+			url := extractGospiderURL(line)
+			if url != "" {
+				allURLs = append(allURLs, url)
+			}
+		}
+	}
+
+	// Clean up seed file
+	os.Remove(seedFile)
+
+	return allURLs
+}
+
+// extractGospiderURL pulls the actual URL from a gospider output line.
+// Handles formats:
+//
+//	[url] - [code-200] - https://example.com/page
+//	[href] - https://example.com/api
+//	https://example.com/page  (quiet mode, no tags)
+func extractGospiderURL(line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return ""
+	}
+
+	// Quiet mode: line is just a URL
+	if strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://") {
+		return line
+	}
+
+	// Tagged format: find last "- http" segment
+	if idx := strings.LastIndex(line, "- http"); idx != -1 {
+		url := strings.TrimSpace(line[idx+2:])
+		if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+			return url
+		}
+	}
+
+	return ""
 }
 
 func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) string {

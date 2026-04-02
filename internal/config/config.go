@@ -62,6 +62,7 @@ type ToolsConfig struct {
 	Nuclei      string `yaml:"nuclei"`
 	Waymore     string `yaml:"waymore"`
 	Paramspider string `yaml:"paramspider"`
+	Gospider    string `yaml:"gospider"`
 	Uro         string `yaml:"uro"`
 }
 
@@ -87,14 +88,17 @@ type NucleiConfig struct {
 }
 
 type DASTConfig struct {
-	RateLimit          int `yaml:"rate_limit"`
-	Concurrency        int `yaml:"concurrency"`
-	Timeout            int `yaml:"timeout"`
-	ScanTimeout        int `yaml:"scan_timeout"`
-	MaxParamspiderSubs int `yaml:"max_paramspider_subs"`
-	WaymoreTimeout     int `yaml:"waymore_timeout"`
-	ParamspiderTimeout int `yaml:"paramspider_timeout"`
-	UroTimeout         int `yaml:"uro_timeout"`
+	RateLimit            int `yaml:"rate_limit"`
+	Concurrency          int `yaml:"concurrency"`
+	Timeout              int `yaml:"timeout"`
+	ScanTimeout          int `yaml:"scan_timeout"`
+	MaxParamspiderSubs   int `yaml:"max_paramspider_subs"`
+	WaymoreTimeout       int `yaml:"waymore_timeout"`
+	ParamspiderTimeout   int `yaml:"paramspider_timeout"`
+	GospiderTimeout      int `yaml:"gospider_timeout"`
+	GospiderConcurrency  int `yaml:"gospider_concurrency"`
+	GospiderDepth        int `yaml:"gospider_depth"`
+	UroTimeout           int `yaml:"uro_timeout"`
 }
 
 type PipelineConfig struct {
@@ -190,6 +194,7 @@ func (c *Config) applyDefaults() {
 	c.Tools.Nuclei = resolveToolPath(c.Tools.Nuclei, "nuclei")
 	c.Tools.Waymore = resolveToolPath(c.Tools.Waymore, "waymore")
 	c.Tools.Paramspider = resolveToolPath(c.Tools.Paramspider, "paramspider")
+	c.Tools.Gospider = resolveToolPath(c.Tools.Gospider, "gospider")
 	c.Tools.Uro = resolveToolPath(c.Tools.Uro, "uro")
 
 	// Recon defaults
@@ -252,6 +257,15 @@ func (c *Config) applyDefaults() {
 	}
 	if c.DAST.ParamspiderTimeout <= 0 {
 		c.DAST.ParamspiderTimeout = 300
+	}
+	if c.DAST.GospiderTimeout <= 0 {
+		c.DAST.GospiderTimeout = 600 // 10 min per domain
+	}
+	if c.DAST.GospiderConcurrency <= 0 {
+		c.DAST.GospiderConcurrency = 5
+	}
+	if c.DAST.GospiderDepth <= 0 {
+		c.DAST.GospiderDepth = 2
 	}
 	if c.DAST.UroTimeout <= 0 {
 		c.DAST.UroTimeout = 300
@@ -336,6 +350,7 @@ func (c *Config) CheckTools() []string {
 		"nuclei":      c.Tools.Nuclei,
 		"waymore":     c.Tools.Waymore,
 		"paramspider": c.Tools.Paramspider,
+		"gospider":    c.Tools.Gospider,
 		"uro":         c.Tools.Uro,
 	}
 
@@ -449,6 +464,7 @@ tools:
   nuclei: ""
   waymore: ""
   paramspider: ""
+  gospider: ""
   uro: ""
 
 # Recon Settings
@@ -481,6 +497,9 @@ dast:
   max_paramspider_subs: 10
   waymore_timeout: 1800   # 30 min (rate limits from APIs)
   paramspider_timeout: 300
+  gospider_timeout: 600   # 10 min per domain
+  gospider_concurrency: 5
+  gospider_depth: 2
   uro_timeout: 300
 
 # Pipeline
