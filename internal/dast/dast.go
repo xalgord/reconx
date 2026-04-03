@@ -79,16 +79,13 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 		return filepath.Join(outputDir, "all_urls.txt")
 	}
 
-	// Extract unique root domains for waymore
-	rootDomains := make(map[string]bool)
-	for _, sub := range subdomains {
-		rootDomains[extractRootDomain(sub)] = true
-	}
+	// Use the target itself as the root domain for waymore/gospider
+	// (extracting from subdomains fails on multi-part TLDs like .gov.pk, .co.uk)
+	rootDomains := map[string]bool{target: true}
 
 	logger.Info("gathering URLs",
 		"target", target,
 		"subdomains", len(subdomains),
-		"root_domains", len(rootDomains),
 	)
 
 	var wg sync.WaitGroup
