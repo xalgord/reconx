@@ -8,7 +8,8 @@
 - **Subdomain enumeration** — subfinder, findomain, assetfinder (concurrent)
 - **DNS resolution** — dnsx with configurable rate limits
 - **Nuclei CVE scanning** — Critical/High severity with JSONL output
-- **DAST scanning** — URL gathering (waymore + paramspider + gospider) → dedup (uro) → nuclei -dast
+- **DAST scanning** — URL gathering (waymore + paramspider + gospider + gau + katana) → dedup (uro) → nuclei -dast
+- **Per-tool control** — Enable/disable any URL source independently via config
 - **Discord notifications** — Rich embeds, color-coded by severity, multiple webhook targets
 - **Web dashboard** — Dark-themed monitoring UI with findings, stats, filters, pagination
 - **YAML config** — Everything configurable via `~/.config/reconx/config.yaml`
@@ -92,6 +93,21 @@ dashboard:
   password: "changeme"
 ```
 
+### Per-tool Enable/Disable
+
+```yaml
+dast:
+  enabled: true
+  waymore_enabled: true
+  paramspider_enabled: true
+  gospider_enabled: true
+  gau_enabled: true
+  katana_enabled: true
+
+nuclei:
+  enabled: true       # toggle CVE scan
+```
+
 ## Commands
 
 | Command | Description |
@@ -121,6 +137,8 @@ Must be in `$PATH` or configured in `tools:` section:
 | waymore | Optional | URL gathering (archives) |
 | paramspider | Optional | URL parameter discovery |
 | gospider | Optional | Web spidering + URL crawling |
+| gau | Optional | Passive URL discovery (OTX, Wayback, CC) |
+| katana | Optional | JS-aware active crawler (ProjectDiscovery) |
 | uro | Optional | URL deduplication |
 
 ## Architecture
@@ -133,6 +151,8 @@ Targets File → [Recon Workers (5x)] → [Scan Queue] → [Scan Workers (10x)]
                assetfinder                              waymore
                → merge/dedup                            paramspider
                → dnsx resolve                           gospider
+                                                        gau
+                                                        katana
                                                         → uro dedup
                                                         → nuclei -dast
                                                             ↓
