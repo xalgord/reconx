@@ -29,6 +29,8 @@ tools:
   waymore: ""
   paramspider: ""
   gospider: ""
+  gau: ""
+  katana: ""
   uro: ""
 
 # Recon Settings
@@ -65,11 +67,22 @@ dast:
   timeout: 20
   scan_timeout: 7200
   max_paramspider_subs: 10   # max subdomains to run paramspider on
+  # Per-tool enable/disable (all enabled by default if installed)
+  waymore_enabled: true
+  paramspider_enabled: true
+  gospider_enabled: true
+  gau_enabled: true
+  katana_enabled: true
+  # Tool timeouts & settings
   waymore_timeout: 1800      # 30 min (APIs have rate limits)
   paramspider_timeout: 300   # 5 minutes
   gospider_timeout: 600      # 10 min per domain
   gospider_concurrency: 5    # concurrent crawlers
   gospider_depth: 2          # crawl depth
+  gau_timeout: 600           # 10 min
+  katana_timeout: 600        # 10 min
+  katana_concurrency: 10     # concurrent fetchers
+  katana_depth: 3            # crawl depth
   uro_timeout: 300           # 5 minutes
 
 # Pipeline

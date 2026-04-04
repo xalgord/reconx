@@ -94,8 +94,13 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 
 	var wg sync.WaitGroup
 
-	// Run waymore on root domains (if available)
-	if cfg.Tools.Waymore != "" {
+	// Helper: check if tool is enabled (*bool defaults to true)
+	toolEnabled := func(flag *bool) bool {
+		return flag == nil || *flag
+	}
+
+	// Run waymore on root domains
+	if cfg.Tools.Waymore != "" && toolEnabled(cfg.DAST.WaymoreEnabled) {
 		for domain := range rootDomains {
 			wg.Add(1)
 			go func(d string) {
@@ -109,12 +114,14 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 				logger.Info("waymore done", "domain", d, "urls_found", len(urls))
 			}(domain)
 		}
+	} else if cfg.Tools.Waymore == "" {
+		logger.Warn("waymore not found, skipping")
 	} else {
-		logger.Warn("waymore not found, skipping archive URL gathering")
+		logger.Info("waymore disabled in config")
 	}
 
-	// Run paramspider on subdomains (limited, if available)
-	if cfg.Tools.Paramspider != "" {
+	// Run paramspider on subdomains (limited)
+	if cfg.Tools.Paramspider != "" && toolEnabled(cfg.DAST.ParamspiderEnabled) {
 		limited := subdomains
 		if len(limited) > cfg.DAST.MaxParamspiderSubs {
 			limited = limited[:cfg.DAST.MaxParamspiderSubs]
@@ -134,8 +141,8 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 		}
 	}
 
-	// Run gospider on live subdomains (if available)
-	if cfg.Tools.Gospider != "" {
+	// Run gospider on live subdomains
+	if cfg.Tools.Gospider != "" && toolEnabled(cfg.DAST.GospiderEnabled) {
 		for domain := range rootDomains {
 			wg.Add(1)
 			go func(d string) {
@@ -147,6 +154,40 @@ func gatherURLs(ctx context.Context, cfg *config.Config, target, liveSubsFile, o
 				}
 				mu.Unlock()
 				logger.Info("gospider done", "domain", d, "urls_found", len(urls))
+			}(domain)
+		}
+	}
+
+	// Run gau on root domains
+	if cfg.Tools.Gau != "" && toolEnabled(cfg.DAST.GauEnabled) {
+		for domain := range rootDomains {
+			wg.Add(1)
+			go func(d string) {
+				defer wg.Done()
+				urls := runGau(ctx, cfg, d)
+				mu.Lock()
+				for _, u := range urls {
+					allURLs[u] = true
+				}
+				mu.Unlock()
+				logger.Info("gau done", "domain", d, "urls_found", len(urls))
+			}(domain)
+		}
+	}
+
+	// Run katana on live subdomains
+	if cfg.Tools.Katana != "" && toolEnabled(cfg.DAST.KatanaEnabled) {
+		for domain := range rootDomains {
+			wg.Add(1)
+			go func(d string) {
+				defer wg.Done()
+				urls := runKatana(ctx, cfg, d, subdomains, urlsDir)
+				mu.Lock()
+				for _, u := range urls {
+					allURLs[u] = true
+				}
+				mu.Unlock()
+				logger.Info("katana done", "domain", d, "urls_found", len(urls))
 			}(domain)
 		}
 	}
@@ -375,6 +416,97 @@ func extractGospiderURL(line string) string {
 	}
 
 	return ""
+}
+
+func runGau(ctx context.Context, cfg *config.Config, domain string) []string {
+	cmd := []string{
+		cfg.Tools.Gau,
+		domain,
+		"--subs",    // include subdomains
+		"--threads", "5",
+	}
+
+	logger.Info("running gau", "domain", domain)
+	timeout := time.Duration(cfg.DAST.GauTimeout) * time.Second
+	result := runner.Run(ctx, cmd, timeout)
+
+	if !result.Success {
+		logger.Warn("gau completed with errors",
+			"domain", domain,
+			"error", result.Err,
+			"stderr", truncateStr(result.Stderr, 500),
+		)
+	}
+
+	// gau outputs URLs to stdout, one per line
+	var urls []string
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://") {
+			urls = append(urls, line)
+		}
+	}
+	return urls
+}
+
+func runKatana(ctx context.Context, cfg *config.Config, domain string, subdomains []string, urlsDir string) []string {
+	// Build seed list from live subdomains
+	seedFile := filepath.Join(urlsDir, fmt.Sprintf("katana_seeds_%s.txt", strings.ReplaceAll(domain, ".", "_")))
+	var seeds []string
+	for _, sub := range subdomains {
+		sub = strings.TrimSpace(sub)
+		if sub != "" {
+			if !strings.HasPrefix(sub, "http") {
+				seeds = append(seeds, "http://"+sub)
+			} else {
+				seeds = append(seeds, sub)
+			}
+		}
+	}
+	if len(seeds) == 0 {
+		seeds = append(seeds, "http://"+domain)
+	}
+	// Limit seeds
+	maxSeeds := 20
+	if len(seeds) > maxSeeds {
+		seeds = seeds[:maxSeeds]
+	}
+	writeLines(seedFile, seeds)
+
+	cmd := []string{
+		cfg.Tools.Katana,
+		"-list", seedFile,
+		"-d", fmt.Sprintf("%d", cfg.DAST.KatanaDepth),
+		"-c", fmt.Sprintf("%d", cfg.DAST.KatanaConcurrency),
+		"-jc",   // crawl JavaScript files
+		"-kf",   // known files (robots.txt, sitemap.xml)
+		"-aff",  // automatic form fill
+		"-silent",
+	}
+
+	logger.Info("running katana", "domain", domain, "seeds", len(seeds))
+	timeout := time.Duration(cfg.DAST.KatanaTimeout) * time.Second
+	result := runner.Run(ctx, cmd, timeout)
+
+	if !result.Success {
+		logger.Warn("katana completed with errors",
+			"domain", domain,
+			"error", result.Err,
+			"stderr", truncateStr(result.Stderr, 500),
+		)
+	}
+
+	// katana outputs URLs to stdout in silent mode
+	var urls []string
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://") {
+			urls = append(urls, line)
+		}
+	}
+
+	os.Remove(seedFile)
+	return urls
 }
 
 func runUro(ctx context.Context, cfg *config.Config, rawFile, outputDir string) string {

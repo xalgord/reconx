@@ -63,6 +63,8 @@ type ToolsConfig struct {
 	Waymore     string `yaml:"waymore"`
 	Paramspider string `yaml:"paramspider"`
 	Gospider    string `yaml:"gospider"`
+	Gau         string `yaml:"gau"`
+	Katana      string `yaml:"katana"`
 	Uro         string `yaml:"uro"`
 }
 
@@ -94,16 +96,27 @@ type NucleiConfig struct {
 
 type DASTConfig struct {
 	Enabled              *bool `yaml:"enabled"`
-	RateLimit            int `yaml:"rate_limit"`
-	Concurrency          int `yaml:"concurrency"`
-	Timeout              int `yaml:"timeout"`
-	ScanTimeout          int `yaml:"scan_timeout"`
-	MaxParamspiderSubs   int `yaml:"max_paramspider_subs"`
+	RateLimit            int   `yaml:"rate_limit"`
+	Concurrency          int   `yaml:"concurrency"`
+	Timeout              int   `yaml:"timeout"`
+	ScanTimeout          int   `yaml:"scan_timeout"`
+	MaxParamspiderSubs   int   `yaml:"max_paramspider_subs"`
+	// Per-tool enable/disable (all default to true)
+	WaymoreEnabled       *bool `yaml:"waymore_enabled"`
+	ParamspiderEnabled   *bool `yaml:"paramspider_enabled"`
+	GospiderEnabled      *bool `yaml:"gospider_enabled"`
+	GauEnabled           *bool `yaml:"gau_enabled"`
+	KatanaEnabled        *bool `yaml:"katana_enabled"`
+	// Timeouts
 	WaymoreTimeout       int `yaml:"waymore_timeout"`
 	ParamspiderTimeout   int `yaml:"paramspider_timeout"`
 	GospiderTimeout      int `yaml:"gospider_timeout"`
 	GospiderConcurrency  int `yaml:"gospider_concurrency"`
 	GospiderDepth        int `yaml:"gospider_depth"`
+	GauTimeout           int `yaml:"gau_timeout"`
+	KatanaTimeout        int `yaml:"katana_timeout"`
+	KatanaConcurrency    int `yaml:"katana_concurrency"`
+	KatanaDepth          int `yaml:"katana_depth"`
 	UroTimeout           int `yaml:"uro_timeout"`
 }
 
@@ -201,6 +214,8 @@ func (c *Config) applyDefaults() {
 	c.Tools.Waymore = resolveToolPath(c.Tools.Waymore, "waymore")
 	c.Tools.Paramspider = resolveToolPath(c.Tools.Paramspider, "paramspider")
 	c.Tools.Gospider = resolveToolPath(c.Tools.Gospider, "gospider")
+	c.Tools.Gau = resolveToolPath(c.Tools.Gau, "gau")
+	c.Tools.Katana = resolveToolPath(c.Tools.Katana, "katana")
 	c.Tools.Uro = resolveToolPath(c.Tools.Uro, "uro")
 
 	// Recon defaults
@@ -281,6 +296,24 @@ func (c *Config) applyDefaults() {
 	if c.DAST.GospiderDepth <= 0 {
 		c.DAST.GospiderDepth = 2
 	}
+	// Per-tool enable defaults (all true)
+	setBoolDefault(&c.DAST.WaymoreEnabled, true)
+	setBoolDefault(&c.DAST.ParamspiderEnabled, true)
+	setBoolDefault(&c.DAST.GospiderEnabled, true)
+	setBoolDefault(&c.DAST.GauEnabled, true)
+	setBoolDefault(&c.DAST.KatanaEnabled, true)
+	if c.DAST.GauTimeout <= 0 {
+		c.DAST.GauTimeout = 600 // 10 min
+	}
+	if c.DAST.KatanaTimeout <= 0 {
+		c.DAST.KatanaTimeout = 600 // 10 min
+	}
+	if c.DAST.KatanaConcurrency <= 0 {
+		c.DAST.KatanaConcurrency = 10
+	}
+	if c.DAST.KatanaDepth <= 0 {
+		c.DAST.KatanaDepth = 3
+	}
 	if c.DAST.UroTimeout <= 0 {
 		c.DAST.UroTimeout = 300
 	}
@@ -353,6 +386,14 @@ func (c *Config) NucleiSeverityStr() string {
 	return s
 }
 
+// setBoolDefault sets a *bool to the given default if it is nil.
+func setBoolDefault(p **bool, val bool) {
+	if *p == nil {
+		v := val
+		*p = &v
+	}
+}
+
 // CheckTools verifies all required tools are available and prints status.
 func (c *Config) CheckTools() []string {
 	var missing []string
@@ -365,6 +406,8 @@ func (c *Config) CheckTools() []string {
 		"waymore":     c.Tools.Waymore,
 		"paramspider": c.Tools.Paramspider,
 		"gospider":    c.Tools.Gospider,
+		"gau":         c.Tools.Gau,
+		"katana":      c.Tools.Katana,
 		"uro":         c.Tools.Uro,
 	}
 
@@ -479,6 +522,8 @@ tools:
   waymore: ""
   paramspider: ""
   gospider: ""
+  gau: ""
+  katana: ""
   uro: ""
 
 # Recon Settings
@@ -515,11 +560,22 @@ dast:
   timeout: 20
   scan_timeout: 7200
   max_paramspider_subs: 10
+  # Per-tool enable/disable
+  waymore_enabled: true
+  paramspider_enabled: true
+  gospider_enabled: true
+  gau_enabled: true
+  katana_enabled: true
+  # Timeouts & settings
   waymore_timeout: 1800   # 30 min (rate limits from APIs)
   paramspider_timeout: 300
   gospider_timeout: 600   # 10 min per domain
   gospider_concurrency: 5
   gospider_depth: 2
+  gau_timeout: 600
+  katana_timeout: 600
+  katana_concurrency: 10
+  katana_depth: 3
   uro_timeout: 300
 
 # Pipeline
