@@ -30,6 +30,10 @@ type Result struct {
 // 2. Deduplicate with uro
 // 3. Run nuclei -dast
 func RunDAST(ctx context.Context, cfg *config.Config, reconResult *recon.Result, store *findings.Store, cycle int) *Result {
+	if cfg.DAST.Enabled != nil && !*cfg.DAST.Enabled {
+		logger.Info("DAST scan disabled in config")
+		return &Result{Target: reconResult.Target}
+	}
 	target := reconResult.Target
 	outputDir := reconResult.OutputDir
 

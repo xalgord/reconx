@@ -44,6 +44,7 @@ dns:
 
 # Nuclei CVE Scan
 nuclei:
+  enabled: true
   severity: ["critical", "high"]
   rate_limit: 50
   concurrency: 15
@@ -58,6 +59,7 @@ nuclei:
 
 # DAST Settings
 dast:
+  enabled: true
   rate_limit: 50
   concurrency: 10
   timeout: 20

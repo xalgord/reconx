@@ -20,6 +20,10 @@ import (
 // RunNucleiCVE runs a nuclei CVE scan on live hosts for a target.
 // Returns the list of new (unique) findings saved.
 func RunNucleiCVE(ctx context.Context, cfg *config.Config, reconResult *recon.Result, store *findings.Store, cycle int) []findings.Finding {
+	if cfg.Nuclei.Enabled != nil && !*cfg.Nuclei.Enabled {
+		logger.Info("nuclei CVE scan disabled in config")
+		return nil
+	}
 	if cfg.Tools.Nuclei == "" {
 		logger.Error("nuclei not found, skipping CVE scan")
 		return nil

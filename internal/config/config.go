@@ -78,6 +78,7 @@ type DNSConfig struct {
 }
 
 type NucleiConfig struct {
+	Enabled           *bool    `yaml:"enabled"`
 	Severity          []string `yaml:"severity"`
 	RateLimit         int      `yaml:"rate_limit"`
 	Concurrency       int      `yaml:"concurrency"`
@@ -92,6 +93,7 @@ type NucleiConfig struct {
 }
 
 type DASTConfig struct {
+	Enabled              *bool `yaml:"enabled"`
 	RateLimit            int `yaml:"rate_limit"`
 	Concurrency          int `yaml:"concurrency"`
 	Timeout              int `yaml:"timeout"`
@@ -221,6 +223,10 @@ func (c *Config) applyDefaults() {
 	}
 
 	// Nuclei defaults
+	if c.Nuclei.Enabled == nil {
+		t := true
+		c.Nuclei.Enabled = &t
+	}
 	if len(c.Nuclei.Severity) == 0 {
 		c.Nuclei.Severity = []string{"critical", "high"}
 	}
@@ -241,6 +247,10 @@ func (c *Config) applyDefaults() {
 	}
 
 	// DAST defaults
+	if c.DAST.Enabled == nil {
+		t := true
+		c.DAST.Enabled = &t
+	}
 	if c.DAST.RateLimit <= 0 {
 		c.DAST.RateLimit = 150
 	}
@@ -484,6 +494,7 @@ dns:
 
 # Nuclei CVE Scan
 nuclei:
+  enabled: true
   severity: ["critical", "high"]
   rate_limit: 100
   concurrency: 50
@@ -498,6 +509,7 @@ nuclei:
 
 # DAST Settings
 dast:
+  enabled: true
   rate_limit: 150
   concurrency: 25
   timeout: 20
