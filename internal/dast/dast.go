@@ -439,6 +439,18 @@ func runNucleiDAST(ctx context.Context, cfg *config.Config, urlsFile, outputDir,
 	for _, id := range cfg.Nuclei.ExcludeIDs {
 		cmd = append(cmd, "-exclude-id", id)
 	}
+	for _, tag := range cfg.Nuclei.ExcludeTags {
+		cmd = append(cmd, "-exclude-tags", tag)
+	}
+	for _, tag := range cfg.Nuclei.IncludeTags {
+		cmd = append(cmd, "-tags", tag)
+	}
+	for _, tmpl := range cfg.Nuclei.ExcludeTemplates {
+		cmd = append(cmd, "-exclude-templates", tmpl)
+	}
+	for _, tmpl := range cfg.Nuclei.IncludeTemplates {
+		cmd = append(cmd, "-templates", tmpl)
+	}
 
 	logger.Info("running nuclei DAST", "target", target, "urls", urlCount)
 

@@ -51,6 +51,10 @@ nuclei:
   timeout: 20                # per-request timeout (seconds)
   scan_timeout: 7200         # total scan timeout per target (seconds) — 2 hours
   exclude_ids: ["CVE-2021-35042"]
+  exclude_tags: []               # e.g. ["dos", "fuzz", "misc"]
+  include_tags: []               # e.g. ["cve", "sqli", "xss", "rce"]
+  exclude_templates: []          # e.g. ["path/to/template.yaml"]
+  include_templates: []          # e.g. ["/custom/templates/"]
 
 # DAST Settings
 dast:

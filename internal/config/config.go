@@ -78,13 +78,17 @@ type DNSConfig struct {
 }
 
 type NucleiConfig struct {
-	Severity    []string `yaml:"severity"`
-	RateLimit   int      `yaml:"rate_limit"`
-	Concurrency int      `yaml:"concurrency"`
-	BulkSize    int      `yaml:"bulk_size"`
-	Timeout     int      `yaml:"timeout"`
-	ScanTimeout int      `yaml:"scan_timeout"`
-	ExcludeIDs  []string `yaml:"exclude_ids"`
+	Severity          []string `yaml:"severity"`
+	RateLimit         int      `yaml:"rate_limit"`
+	Concurrency       int      `yaml:"concurrency"`
+	BulkSize          int      `yaml:"bulk_size"`
+	Timeout           int      `yaml:"timeout"`
+	ScanTimeout       int      `yaml:"scan_timeout"`
+	ExcludeIDs        []string `yaml:"exclude_ids"`
+	ExcludeTags       []string `yaml:"exclude_tags"`
+	IncludeTags       []string `yaml:"include_tags"`
+	ExcludeTemplates  []string `yaml:"exclude_templates"`
+	IncludeTemplates  []string `yaml:"include_templates"`
 }
 
 type DASTConfig struct {
@@ -487,6 +491,10 @@ nuclei:
   timeout: 20
   scan_timeout: 7200  # 2 hours
   exclude_ids: ["CVE-2021-35042"]
+  exclude_tags: []         # e.g. ["dos", "fuzz"]
+  include_tags: []         # e.g. ["cve", "sqli", "xss"]
+  exclude_templates: []    # e.g. ["path/to/template.yaml"]
+  include_templates: []    # e.g. ["/custom/templates/"]
 
 # DAST Settings
 dast:
