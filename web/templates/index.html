@@ -224,7 +224,7 @@
                     <td class="mono">${escapeHtml(f['template-id'] || f.id || '')}</td>
                     <td>${escapeHtml(f.name || '')}</td>
                     <td class="mono">${escapeHtml(f.host || '')}</td>
-                    <td class="mono url-cell" title="${escapeHtml(f['matched-at'] || f.matched_at || '')}">${escapeHtml(truncate(f['matched-at'] || f.matched_at || '', 80))}</td>
+                    <td class="mono url-cell"><a href="${escapeHtml(f['matched-at'] || f.matched_at || '')}" target="_blank" rel="noopener" title="${escapeHtml(f['matched-at'] || f.matched_at || '')}">${escapeHtml(f['matched-at'] || f.matched_at || '')}</a></td>
                     <td><span class="type-badge">${escapeHtml(f.scan_type || '')}</span></td>
                     <td class="time-cell">${formatTime(f.discovered_at)}</td>
                 </tr>

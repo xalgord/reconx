@@ -259,11 +259,18 @@ body {
 
 .mono { font-family: var(--font-mono); font-size: 0.75rem; }
 .url-cell {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-secondary);
+    max-width: 420px;
+    word-break: break-all;
+    white-space: normal;
+}
+.url-cell a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+.url-cell a:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
 }
 .time-cell { white-space: nowrap; color: var(--text-muted); font-size: 0.7rem; }
 .empty-row { text-align: center; color: var(--text-muted); padding: 2rem !important; }
